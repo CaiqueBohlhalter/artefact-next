@@ -1,4 +1,4 @@
-import type { Task, TaskDetails } from "./task.model";
+import type { Task, TaskDetails, TaskPage } from "./task.model";
 
 export class TaskStore {
   private readonly tasks: Task[];
@@ -9,6 +9,20 @@ export class TaskStore {
 
   list(): readonly Task[] {
     return this.tasks.map((task) => this.createSnapshot(task));
+  }
+
+  listPage(cursor: number | undefined, limit: number): TaskPage {
+    const firstTaskIndex = cursor ?? 0;
+    const pageTasks = this.tasks
+      .slice(firstTaskIndex, firstTaskIndex + limit)
+      .map((task) => this.createSnapshot(task));
+    const nextTaskIndex = firstTaskIndex + pageTasks.length;
+
+    return {
+      tasks: pageTasks,
+      nextCursor:
+        nextTaskIndex < this.tasks.length ? nextTaskIndex : undefined,
+    };
   }
 
   findById(taskId: string): Task | undefined {

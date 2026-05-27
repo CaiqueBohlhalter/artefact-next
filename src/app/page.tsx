@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { TaskList } from "@/components/tasks/task-list";
+import { TASK_LIST_PAGE_SIZE } from "@/server/tasks/task.constants";
 import { createServerCaller } from "@/server/trpc/app-router";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,9 @@ export default async function TaskListPage({
   searchParams,
 }: Readonly<{ searchParams: Promise<{ feedback?: string | string[] }> }>) {
   const { feedback } = await searchParams;
-  const initialTasks = await createServerCaller().task.list();
+  const initialTaskPage = await createServerCaller().task.listPage({
+    limit: TASK_LIST_PAGE_SIZE,
+  });
   const taskOperationFeedbackKey =
     typeof feedback === "string" ? feedback : undefined;
   const operationSuccessMessage =
@@ -39,7 +42,7 @@ export default async function TaskListPage({
         </Link>
       </header>
       <TaskList
-        initialTasks={initialTasks}
+        initialTaskPage={initialTaskPage}
         operationSuccessMessage={operationSuccessMessage}
       />
     </main>

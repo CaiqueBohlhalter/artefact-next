@@ -58,4 +58,25 @@ describe("TaskStore", () => {
     changeTaskTitle(listedTask, "Changed list result");
     expect(taskStore.findById(createdTask.id)?.title).toBe("Updated title");
   });
+
+  it("returns task pages in order without exposing stored task references", () => {
+    const taskStore = new TaskStore();
+    taskStore.create({ title: "First task" });
+    taskStore.create({ title: "Second task" });
+    taskStore.create({ title: "Third task" });
+
+    const firstPage = taskStore.listPage(undefined, 2);
+    const secondPage = taskStore.listPage(firstPage.nextCursor, 2);
+
+    expect(firstPage.tasks.map((task) => task.title)).toEqual([
+      "Third task",
+      "Second task",
+    ]);
+    expect(firstPage.nextCursor).toBe(2);
+    expect(secondPage.tasks.map((task) => task.title)).toEqual(["First task"]);
+    expect(secondPage.nextCursor).toBeUndefined();
+
+    changeTaskTitle(firstPage.tasks[0], "Changed page result");
+    expect(taskStore.list()[0].title).toBe("Third task");
+  });
 });

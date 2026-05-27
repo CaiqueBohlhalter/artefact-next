@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "@/server/trpc/init";
+import { TASK_LIST_PAGE_SIZE } from "./task.constants";
 import { taskStore, type TaskStore } from "./task.store";
 
 const taskDetailsSchema = z.object({
@@ -21,6 +22,11 @@ const taskIdSchema = z.object({
   id: z.string().uuid("Invalid task id."),
 });
 
+const taskPageInputSchema = z.object({
+  cursor: z.number().int().nonnegative().nullish(),
+  limit: z.number().int().positive().max(50).default(TASK_LIST_PAGE_SIZE),
+});
+
 function createTaskNotFoundError() {
   return new TRPCError({
     code: "NOT_FOUND",
@@ -31,6 +37,12 @@ function createTaskNotFoundError() {
 export function createTaskRouter(taskStoreInstance: TaskStore) {
   return createTRPCRouter({
     list: publicProcedure.query(() => taskStoreInstance.list()),
+
+    listPage: publicProcedure
+      .input(taskPageInputSchema)
+      .query(({ input }) =>
+        taskStoreInstance.listPage(input.cursor ?? undefined, input.limit),
+      ),
 
     getById: publicProcedure.input(taskIdSchema).query(({ input }) => {
       const requestedTask = taskStoreInstance.findById(input.id);

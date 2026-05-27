@@ -1,9 +1,14 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
-import type { Task } from "@/server/tasks/task.model";
+import { useEffect, useRef, useState } from "react";
+import { TASK_LIST_PAGE_SIZE } from "@/server/tasks/task.constants";
+import type { TaskPage } from "@/server/tasks/task.model";
 import { useTRPC } from "@/trpc/client";
 
 type UserFeedback = {
@@ -18,24 +23,41 @@ const taskCreationDateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 export function TaskList({
-  initialTasks,
+  initialTaskPage,
   operationSuccessMessage,
 }: Readonly<{
-  initialTasks: readonly Task[];
+  initialTaskPage: TaskPage;
   operationSuccessMessage?: string;
 }>) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
   const [userFeedback, setUserFeedback] = useState<UserFeedback | null>(
     operationSuccessMessage
       ? { kind: "success", message: operationSuccessMessage }
       : null,
   );
-  const taskListQuery = useQuery(
-    trpc.task.list.queryOptions(undefined, {
-      initialData: initialTasks,
-    }),
+  const taskListQuery = useInfiniteQuery(
+    trpc.task.listPage.infiniteQueryOptions(
+      { limit: TASK_LIST_PAGE_SIZE },
+      {
+        initialData: {
+          pages: [initialTaskPage],
+          pageParams: [null],
+        },
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? null,
+      },
+    ),
   );
+  const {
+    data: taskPageData,
+    error: taskListError,
+    fetchNextPage,
+    hasNextPage,
+    isError: isTaskListError,
+    isFetchingNextPage,
+    isFetchNextPageError,
+  } = taskListQuery;
   const deleteTaskMutation = useMutation(
     trpc.task.delete.mutationOptions({
       onSuccess: async (deletedTask) => {
@@ -43,7 +65,27 @@ export function TaskList({
           kind: "success",
           message: `"${deletedTask.title}" was deleted.`,
         });
-        await queryClient.invalidateQueries(trpc.task.list.queryFilter());
+        queryClient.setQueryData(
+          trpc.task.listPage.infiniteQueryKey({ limit: TASK_LIST_PAGE_SIZE }),
+          (currentTaskPageData) => {
+            if (!currentTaskPageData) {
+              return currentTaskPageData;
+            }
+
+            return {
+              ...currentTaskPageData,
+              pages: currentTaskPageData.pages.map((taskPage) => ({
+                ...taskPage,
+                tasks: taskPage.tasks.filter(
+                  (task) => task.id !== deletedTask.id,
+                ),
+              })),
+            };
+          },
+        );
+        await queryClient.invalidateQueries(
+          trpc.task.listPage.infiniteQueryFilter(),
+        );
       },
       onError: (error) => {
         setUserFeedback({ kind: "error", message: error.message });
@@ -51,7 +93,37 @@ export function TaskList({
     }),
   );
 
-  const displayedTasks = taskListQuery.data ?? [];
+  useEffect(() => {
+    const loadMoreTrigger = loadMoreTriggerRef.current;
+
+    if (
+      !loadMoreTrigger ||
+      !hasNextPage ||
+      isFetchNextPageError
+    ) {
+      return;
+    }
+
+    const intersectionObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !isFetchingNextPage) {
+          void fetchNextPage();
+        }
+      },
+      { rootMargin: "240px" },
+    );
+
+    intersectionObserver.observe(loadMoreTrigger);
+    return () => intersectionObserver.disconnect();
+  }, [
+    fetchNextPage,
+    hasNextPage,
+    isFetchNextPageError,
+    isFetchingNextPage,
+  ]);
+
+  const displayedTasks =
+    taskPageData?.pages.flatMap((page) => page.tasks) ?? [];
 
   return (
     <section aria-label="Task list">
@@ -60,9 +132,9 @@ export function TaskList({
           {userFeedback.message}
         </p>
       ) : null}
-      {taskListQuery.isError ? (
+      {isTaskListError && !isFetchNextPageError ? (
         <p className="feedback error" role="alert">
-          Unable to load tasks: {taskListQuery.error.message}
+          Unable to load tasks: {taskListError.message}
         </p>
       ) : null}
       {displayedTasks.length === 0 ? (
@@ -112,6 +184,26 @@ export function TaskList({
           })}
         </ul>
       )}
+      {isFetchNextPageError ? (
+        <div className="loadMoreStatus" role="alert">
+          <p>Unable to load more tasks.</p>
+          <button
+            className="button secondary"
+            onClick={() => void fetchNextPage()}
+            type="button"
+          >
+            Try again
+          </button>
+        </div>
+      ) : hasNextPage ? (
+        <div className="loadMoreStatus" ref={loadMoreTriggerRef}>
+          {isFetchingNextPage
+            ? "Loading more tasks..."
+            : "Scroll to load more tasks."}
+        </div>
+      ) : displayedTasks.length > 0 ? (
+        <p className="endOfList">All tasks loaded.</p>
+      ) : null}
     </section>
   );
 }

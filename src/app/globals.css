@@ -144,6 +144,23 @@ h1 {
   list-style: none;
 }
 
+.loadMoreStatus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 72px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.endOfList {
+  padding-top: 28px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+
 .taskCard {
   display: flex;
   justify-content: space-between;

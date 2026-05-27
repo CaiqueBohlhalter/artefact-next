@@ -22,8 +22,8 @@ export function TaskForm({ task }: Readonly<TaskFormProps>) {
     string | null
   >(null);
 
-  async function handleSuccessfulSave() {
-    await queryClient.invalidateQueries(trpc.task.list.queryFilter());
+  function handleSuccessfulSave() {
+    queryClient.removeQueries(trpc.task.listPage.infiniteQueryFilter());
     router.push(
       `/?feedback=${isEditingExistingTask ? "updated" : "created"}`,
     );

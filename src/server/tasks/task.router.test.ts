@@ -30,6 +30,27 @@ describe("taskRouter", () => {
     expect(tasks).toEqual([createdTask]);
   });
 
+  it("returns paginated task results for incremental loading", async () => {
+    const caller = createCaller();
+    await caller.task.create({ title: "First task" });
+    await caller.task.create({ title: "Second task" });
+    await caller.task.create({ title: "Third task" });
+
+    const firstPage = await caller.task.listPage({ limit: 2 });
+    const secondPage = await caller.task.listPage({
+      cursor: firstPage.nextCursor,
+      limit: 2,
+    });
+
+    expect(firstPage.tasks.map((task) => task.title)).toEqual([
+      "Third task",
+      "Second task",
+    ]);
+    expect(firstPage.nextCursor).toBe(2);
+    expect(secondPage.tasks.map((task) => task.title)).toEqual(["First task"]);
+    expect(secondPage.nextCursor).toBeUndefined();
+  });
+
   it("rejects task creation without a title", async () => {
     const caller = createCaller();
 

@@ -7,6 +7,7 @@ editing, and deleting tasks while intentionally storing data in memory.
 ## Features
 
 - Server-rendered initial task list.
+- Incremental task loading through infinite scroll.
 - Typed CRUD API exposed through tRPC.
 - Create and edit form with client-side and server-side validation.
 - Success feedback for create, edit, and delete operations, plus mutation errors.
@@ -64,6 +65,7 @@ The application exposes these procedures under `task`:
 | Procedure | Type | Purpose |
 | --- | --- | --- |
 | `task.list` | query | Return all tasks, newest first. |
+| `task.listPage` | query | Return one page of tasks for infinite scroll. |
 | `task.getById` | query | Return a task for the edit page. |
 | `task.create` | mutation | Add a task. |
 | `task.update` | mutation | Edit an existing task. |
@@ -73,16 +75,20 @@ The endpoint is handled at `/api/trpc/[trpc]`.
 
 ## Architecture Decisions
 
-The initial list is loaded in `src/app/page.tsx`, a Server Component marked as
-dynamic. It calls the tRPC router on the server and passes the result to the
+The first task page is loaded in `src/app/page.tsx`, a Server Component marked
+as dynamic. It calls the tRPC router on the server and passes the result to the
 interactive list. This provides server-rendered HTML for the first request
 without making the server send an HTTP request to itself.
 
 Client interactions use the same tRPC contract through
-`@trpc/tanstack-react-query`. After a successful mutation, the task-list query
-is invalidated so the rendered state is fetched again from the in-memory
-backend. Create and edit navigations include a controlled feedback value so the
-list can confirm completion without introducing an additional state layer.
+`@trpc/tanstack-react-query`. The task list uses an infinite query and a native
+`IntersectionObserver` to load the next page as its marker approaches the
+viewport. The in-memory store supplies an offset cursor, which is appropriate
+for this small assessment dataset. After deletion, the deleted task is removed
+from the visible cache immediately and loaded pages are revalidated so offsets
+cannot remain stale. Create and edit navigations clear the paginated cache and
+include a controlled feedback value, allowing the new SSR page to be shown
+without introducing an additional state layer.
 
 The task store is separate from the router. The running application uses one
 process-wide instance, while tests inject a new store into a router instance.
