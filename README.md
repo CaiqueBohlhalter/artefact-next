@@ -4,6 +4,12 @@ A small task management application built for a technical assessment using
 Next.js 15, tRPC, TanStack Query, and Zod. It supports creating, listing,
 editing, and deleting tasks while intentionally storing data in memory.
 
+## Bonus Feature
+
+The required solution is maintained in this branch. An additional infinite
+scroll implementation is available in the
+[`bonus/infinite-scroll`](../../tree/bonus/infinite-scroll) branch for review.
+
 ## Features
 
 - Server-rendered initial task list.
