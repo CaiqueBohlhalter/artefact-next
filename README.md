@@ -42,6 +42,28 @@ npm test
 npm run build
 ```
 
+## Infinite Scroll Bonus
+
+This branch extends the required solution with incremental loading on the task
+list:
+
+1. The server renders the first page of up to 10 tasks, preserving the SSR
+   requirement.
+2. `task.listPage` exposes additional pages using a numeric cursor over the
+   in-memory, newest-first task order.
+3. The client uses `useInfiniteQuery` and `IntersectionObserver` to fetch the
+   next page when the loading marker approaches the viewport.
+4. When a task is deleted, it is removed from visible cached pages immediately,
+   and the loaded pages are revalidated to account for shifted offsets.
+
+To test the bonus manually:
+
+1. Create at least 12 tasks.
+2. Open the list and confirm the newest 10 tasks are initially visible.
+3. Scroll to the bottom and confirm the remaining tasks are appended.
+4. Delete a visible task after loading multiple pages and confirm it disappears
+   immediately without duplicating or hiding neighboring tasks.
+
 ## Data Model
 
 Each task contains:
